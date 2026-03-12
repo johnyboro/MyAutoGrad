@@ -1,4 +1,5 @@
 from __future__ import annotations
+import math
 from graphviz import Digraph
 
 from extra_tools import print_to_kitty
@@ -7,6 +8,7 @@ class Value:
     def __init__(self, data, _children=(), _op='', label='') -> None:
         self.data = data
         self.grad = 0.0
+        self._backward = lambda: None
         self._prev = set(_children)
         self._op = _op
         self.label = label
@@ -15,10 +17,89 @@ class Value:
         return f"Value(data={self.data})"
 
     def __add__(self, other) -> Value:
-        return Value(self.data + other.data, (self, other), '+')
+        other = other if isinstance(other, Value) else Value(other)
+        out = Value(self.data + other.data, (self, other), '+')
+        
+        def _backward():
+            self.grad += 1.0 * out.grad
+            other.grad += 1.0 * out.grad
+
+        out._backward = _backward
+        return out
 
     def __mul__(self, other) -> Value:
-        return Value(self.data * other.data, (self, other), '*')
+        other = other if isinstance(other, Value) else Value(other)
+        out = Value(self.data * other.data, (self, other), '*')
+    
+        def _backward():
+            self.grad += other.data * out.grad
+            other.grad += self.data * out.grad
+
+        out._backward = _backward
+        return out
+
+    def __pow__(self, other) -> Value:
+        assert isinstance(other, (int, float)), "currently supporting int/float powers only"
+        out = Value(self.data**other, (self, ), f'**{other}')
+
+        def _backward():
+            self.grad += other * self.data**(other - 1) * out.grad
+
+        out._backward = _backward
+        return out
+
+    def __rmul__(self, other) -> Value:
+        return self * other
+
+    def __truediv__(self, other) -> Value:
+        return self * other**-1
+
+    def __neg__(self) -> Value:
+        return self * -1
+
+    def __sub__(self, other) -> Value:
+        return self + (-other)
+
+    def exp(self) -> Value:
+        x = self.data
+        out = Value(math.exp(x), (self, ), 'exp')
+
+        def _backward():
+            self.grad += out.data * out.grad
+
+        out._backward = _backward
+        return out
+
+    def tanh(self) -> Value:
+        x = self.data
+        t = (math.exp(2*x) - 1)/(math.exp(2*x) + 1)
+        out = Value(t, (self, ), 'tanh')
+
+        def _backward():
+            self.grad += (1 - t**2) * out.grad
+
+        out._backward = _backward
+        return out
+
+    def _compile_topology(self, root):
+        root.grad = 1.0 
+        topo = []
+        visited = set()
+
+        def build_topo(v):
+            if v not in visited:
+                visited.add(v)
+                for child in v._prev:
+                    build_topo(child)
+                topo.append(v)
+        
+        build_topo(root)
+        return topo
+
+    def backward(self) -> None:
+        topo = self._compile_topology(self)
+        for node in reversed(topo):
+            node._backward()
 
 
 def trace(root):
@@ -34,7 +115,7 @@ def trace(root):
     return nodes, edges
 
 def draw_dot(root):
-    dot = Digraph(format='png', graph_attr={'rankdir': 'LR'})
+    dot = Digraph(graph_attr={'rankdir': 'LR'})
     nodes, edges = trace(root)
 
     for n in nodes:
@@ -50,7 +131,7 @@ def draw_dot(root):
     return dot
 
 
-def test() -> None:
+def simple_test() -> None:
     a = Value(3.0, label='a')
     b = Value(2.0, label='b')
     c = Value(-2.0, label='c')
@@ -63,12 +144,42 @@ def test() -> None:
     L = e * f
     L.label = 'L'
 
-    f.grad = 4.0
-    e.grad = 10.0
     print_to_kitty(draw_dot(L))
 
+def backpropagation_test() -> None:
+    x1 = Value(2.0, label='x1')
+    x2 = Value(0.0, label='x2')
+
+    w1 = Value(-3.0, label='w1')
+    w2 = Value(1.0, label='w2')
+
+    b = Value(6.8813735870195432, label='b')
+
+    # simple neuron
+    x1w1 = x1*w1
+    x1w1.label = 'x1*w1'
+
+    x2w2 = x2*w2
+    x2w2.label = 'x2*w2'
+
+    x1w1x2w2 = x1w1 + x2w2
+    x1w1x2w2.label = 'x1*w1 + x2*w2'
+
+    n = x1w1x2w2 + b
+    n.label = 'n'
+
+    # o = n.tanh()\
+    e = (2*n).exp()
+    o = (e - 1) / (e + 1)
+    o.label = 'o'
+
+    # backpropagation
+    o.backward()
+
+    dot = draw_dot(o)
+    dot.render('computational_graph', format='svg', view=True)
 
 if __name__ == "__main__":
-    test()
+    backpropagation_test()
 
 
