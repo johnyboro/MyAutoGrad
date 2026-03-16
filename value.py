@@ -1,5 +1,6 @@
 from __future__ import annotations
 import math
+import random
 
 class Value:
     def __init__(self, data, _children=(), _op='', label='') -> None:
@@ -23,6 +24,9 @@ class Value:
 
         out._backward = _backward
         return out
+
+    def __radd__(self, other) -> Value:
+        return self + other
 
     def __mul__(self, other) -> Value:
         other = other if isinstance(other, Value) else Value(other)
@@ -51,11 +55,17 @@ class Value:
     def __truediv__(self, other) -> Value:
         return self * other**-1
 
+    def __rtruediv__(self, other) -> Value:
+        return Value(other) * self**-1
+
     def __neg__(self) -> Value:
         return self * -1
 
     def __sub__(self, other) -> Value:
         return self + (-other)
+
+    def __rsub__(self, other) -> Value:
+        return Value(other) - self
 
     def exp(self) -> Value:
         x = self.data
@@ -97,4 +107,17 @@ class Value:
         topo = self._compile_topology(self)
         for node in reversed(topo):
             node._backward()
+
+
+class Neuron:
+    def __init__(self, nin: int) -> None:
+        self.w = [Value(random.uniform(-1, 1)) for _ in range (nin)]
+        self.b = Value(random.uniform(-1, 1))
+
+    def __call__(self, x):
+        act = sum(wi*xi for wi, xi in zip(self.w, x)) + self.b
+        out = act.tanh()
+
+        return out
+
 
