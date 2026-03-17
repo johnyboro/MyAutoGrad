@@ -1,6 +1,6 @@
 from draw import draw_dot
 from extra_tools import print_to_kitty
-from value import Value
+from value import MLP, Value
 
 
 def simple_test() -> None:
@@ -51,8 +51,58 @@ def backpropagation_test() -> None:
     dot = draw_dot(o)
     dot.render('computational_graph', format='svg', view=True)
 
-if __name__ == "__main__":
-    backpropagation_test()
 
+def mlp_test() -> None:
+    x = [2.0, 3.0, -1.0]
+    n = MLP(3, [4, 4, 1])
+    o = n(x)
+    print(o)
+    dot = draw_dot(o)
+    dot.render('computational_graph', format='svg', view=True)
+
+
+def training_loop(n: MLP, xs, ys, epochs: int, lr: float):
+    for epoch in range(epochs):
+        print("Epoch: ", epoch)
+        ypred = [n(x) for x in xs]
+        print("Predictions: ", ypred)
+        loss: Value = sum([(yout - ygt)**2 for ygt, yout in zip(ys, ypred)])
+        # Zero grad
+        for p in n.parameters():
+            p.grad = 0.0
+
+        loss.backward()
+
+        # Updating weights (gradient descent)
+        for p in n.parameters():
+            p.data += -lr * p.grad
+
+        print("Loss: ", loss.data)
+
+    return loss
+
+
+def tiny_dataset_test() -> None:
+    # dataset
+    xs = [
+        [2.0, 3.0, -1.0],
+        [3.0, -1.0, 0.5],
+        # [0.5, 1.0, 1.0],
+        # [1.0, 1.0, -1.0],
+    ]
+    # targets
+    ys = [1.0, -1.0, -1.0, 1.0]
+
+    # mlp
+    n = MLP(3, [2, 1])
+    print("Number of MLP parameters: ", len(n.parameters()))
+    
+    final_loss = training_loop(n, xs, ys, 10, 0.05)
+
+    dot = draw_dot(final_loss)
+    dot.render('loss_graph', format='svg', view=True)
+
+if __name__ == "__main__":
+    tiny_dataset_test()
 
 
