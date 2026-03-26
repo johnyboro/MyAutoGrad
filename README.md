@@ -1,6 +1,6 @@
 # MyAutoGrad
 
-A lightweight, educational implementation of automatic differentiation built from scratch using only Python and NumPy. Inspired by Andrej Karpathy's [Neural Networks: Zero to Hero](https://karpathy.ai) lecture series.
+A lightweight, educational implementation of automatic differentiation built from scratch using only Python and NumPy. Inspired by Andrej Karpathy's micrograd lecture series.
 
 ## Overview
 
@@ -17,7 +17,9 @@ MyAutoGrad provides a minimal yet complete auto-grad engine that tracks computat
 ## Installation
 
 ```bash
-pip install graphviz matplotlib numpy
+uv sync
+# or
+pip install -e .
 ```
 
 ## Quick Start
