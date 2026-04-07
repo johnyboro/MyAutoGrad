@@ -28,8 +28,6 @@ jobs:
 
       - name: Install the module
         run: uv pip install -e .
-        env:
-          UV_SYSTEM_PYTHON: 1
 
       - name: Run tests
         run: uv run pytest
