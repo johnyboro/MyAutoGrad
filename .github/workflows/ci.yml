@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: python-test
+    runs-on: $ {{ matrix.os }}
+    strategy:
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv and enable caching
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
+      - name: Install the module
+        run: uv pip install -e .
+        env:
+          UV_SYSTEM_PYTHON: 1
+
+      - name: Run tests
+        run: uv run pytest
